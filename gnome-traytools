@@ -16,11 +16,10 @@
 # with this program.  If not, see <http://www.gnu.org/licenses/>.
 ### END LICENSE
 
-import os,sys,gi,random,fcntl,shutil
+import gi, os, sys, random, fcntl, shutil
 gi.require_version('Gtk', '3.0')
 gi.require_version('AppIndicator3', '0.1')
-from gi.repository import Gtk, Gio, GLib
-from gi.repository import AppIndicator3 as appindicator
+from gi.repository import Gtk, Gio, GLib, AppIndicator3
 
 def quitApplication(widget):
     sys.exit(0)
@@ -40,7 +39,6 @@ def forceBackgroundfolder():
     dialog.set_create_folders(False)
     dialog.add_button("Select", Gtk.ResponseType.OK)
     dialog.set_default_response(Gtk.ResponseType.OK)
-    dialog.set_default_size(800, 400)
     dialog.set_current_folder(userHome)
     response = dialog.run()
     if response == Gtk.ResponseType.OK:
@@ -109,10 +107,10 @@ def toggleScreensaver(widget):
     isActive=widget.get_active()
     if isActive:
       gsettings_session.set_value(IdleKey,GLib.Variant.new_uint32(IdleSec))
-      ind.set_status(appindicator.IndicatorStatus.ACTIVE)
+      ind.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
     else:
       gsettings_session.set_value(IdleKey,GLib.Variant.new_uint32(0))
-      ind.set_status(appindicator.IndicatorStatus.ATTENTION)
+      ind.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
 
 def toggleSleepInactive(widget):
     isActive=widget.get_active()
@@ -280,9 +278,9 @@ if __name__ == "__main__":
   lockFile.flush()
 
   # Create Application Indicator
-  ind = appindicator.Indicator.new (appName, icon_active, appindicator.IndicatorCategory.APPLICATION_STATUS)
+  ind = AppIndicator3.Indicator.new (appName, icon_active, AppIndicator3.IndicatorCategory.APPLICATION_STATUS)
   ind.set_attention_icon_full(icon_attention, 'attention')
-  ind.set_status(appindicator.IndicatorStatus.ACTIVE)
+  ind.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
 
   # Create Menu
   menu = Gtk.Menu()
