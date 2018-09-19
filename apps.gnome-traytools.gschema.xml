@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="apps.gnome-traytools" path="/apps/gnome-traytools/">
+    <key type="s" name="backgroundfolder">
+      <default>"/usr/share/backgrounds"</default>
+      <summary>Path for the Backgroundfolder</summary>
+      <description>Set a Path for the Backgroundfolder.</description>
+    </key>
+    <key type="b" name="livewallpaper">
+      <default>true</default>
+      <summary>Enable LiveWallpaper</summary>
+      <description>Setup if LiveWallpaper is enabeld at Startup.</description>
+    </key>
+    <key type="b" name="screensaver">
+      <default>true</default>
+      <summary>Enable Screensaver</summary>
+      <description>Setup if Screensaver is enabeld at Startup.</description>
+    </key>
+    <key type="b" name="sleepinactive">
+      <default>true</default>
+      <summary>Enable SleepInactive</summary>
+      <description>Setup if SleepInactive is enabeld at Startup.</description>
+    </key>
+  </schema>
+</schemalist>
+

@@ -1,0 +1,10 @@
+Package: gnome-traytools
+Version: 0.1
+Architecture: all
+Maintainer: John Smith
+Installed-Size: 0
+Depends: gnome-shell, python3, python3-gi, gir1.2-appindicator3-0.1, dconf-gsettings-backend | gsettings-backend
+Section: gnome
+Priority: optional
+Homepage: https://github.com/john4smith/gnome-traytools
+Description: Gnome Tray Tools by John Smith.

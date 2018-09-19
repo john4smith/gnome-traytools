@@ -1,0 +1,295 @@
+#!/usr/bin/python3
+#
+# Gnome TrayTools
+#
+### BEGIN LICENSE
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 3, as published
+# by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranties of
+# MERCHANTABILITY, SATISFACTORY QUALITY, or FITNESS FOR A PARTICULAR
+# PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program.  If not, see <http://www.gnu.org/licenses/>.
+### END LICENSE
+
+import os,sys,gi,random,fcntl,shutil
+gi.require_version('Gtk', '3.0')
+gi.require_version('AppIndicator3', '0.1')
+from gi.repository import Gtk, Gio, GLib
+from gi.repository import AppIndicator3 as appindicator
+
+def quitApplication(widget):
+    sys.exit(0)
+
+def showMessageDialog(message):
+    dialog = Gtk.MessageDialog(message_type=Gtk.MessageType.WARNING, buttons=Gtk.ButtonsType.CLOSE, text=message)
+    dialog.set_title('Gnome TrayTools')
+    dialog.set_default_size(400, 100)
+    dialog.show_all()
+    dialog.run()
+    dialog.destroy()
+
+def forceBackgroundfolder():
+    dialog = Gtk.FileChooserDialog()
+    dialog.set_title('Choose a Backgroundfolder')
+    dialog.set_action(Gtk.FileChooserAction.SELECT_FOLDER)
+    dialog.set_create_folders(False)
+    dialog.add_button("Select", Gtk.ResponseType.OK)
+    dialog.set_default_response(Gtk.ResponseType.OK)
+    dialog.set_default_size(800, 400)
+    dialog.set_current_folder(userHome)
+    response = dialog.run()
+    if response == Gtk.ResponseType.OK:
+        gsettings_traytools.set_string("backgroundfolder", dialog.get_filename())
+        dialog.destroy()
+    else:
+        dialog.destroy()
+        showMessageDialog('No Folder choosen!')
+        os._exit(0)
+
+def findWallpapers():
+    global IMAGES
+    IMAGES = []
+    SOURCE_FOLDER = gsettings_traytools.get_string("backgroundfolder")
+    if not os.path.isdir(SOURCE_FOLDER):
+        forceBackgroundfolder()
+        SOURCE_FOLDER = gsettings_traytools.get_string("backgroundfolder")
+    for root, dirs, files in os.walk(SOURCE_FOLDER):
+        for file in files:
+            if (file.endswith(".jpg") or file.endswith(".JPG") or file.endswith(".jpeg") or file.endswith(".JPEG")):
+                IMAGES.append(os.path.join(root, file))
+    random.shuffle(IMAGES)
+    if not IMAGES:
+        gsettings_traytools.set_string("backgroundfolder", "")
+        showMessageDialog('No Pictures found in this Folder!')
+        findWallpapers()
+
+def nextWallpaper(widget):
+    global IMAGE_NUMBER
+    if os.path.isfile(IMAGES[IMAGE_NUMBER]):
+        gsettings_screensaver.set_string("picture-uri", "file://" + IMAGES[IMAGE_NUMBER])
+        gsettings_background.set_string("picture-uri", "file://" + IMAGES[IMAGE_NUMBER])
+    if IMAGE_NUMBER < ( len(IMAGES) - 1 ):
+        IMAGE_NUMBER += 1
+    else:
+        IMAGE_NUMBER = 0
+    return True
+
+def toggleWallpaper(widget):
+    global timerAsync
+    isActive = widget.get_active()
+    if isActive:
+        timerAsync = GLib.timeout_add_seconds(NextWallpaperSec, nextWallpaper, '')
+    else:
+        if timerAsync > 0:
+            GLib.source_remove(timerAsync)
+
+def toggleAutoStart(widget):
+    isActive = widget.get_active()
+    if isActive:
+      try:
+        if not os.path.exists(autoStartDestinationFolder):
+          debugPrint("Create Folder: " + autoStartDestinationFolder)
+          os.makedirs(autoStartDestinationFolder)
+        shutil.copy (autoStartSourceFile, autoStartDestinationFile)
+      except:
+        showMessageDialog("File Copy Error from " + autoStartSourceFile + " to " + autoStartDestinationFile )
+    else:
+      try:
+        if os.path.isfile(autoStartDestinationFile):
+          os.remove(autoStartDestinationFile)
+      except:
+        showMessageDialog("File Delete Error for: " + autoStartDestinationFile )
+
+def toggleScreensaver(widget):
+    isActive=widget.get_active()
+    if isActive:
+      gsettings_session.set_value(IdleKey,GLib.Variant.new_uint32(IdleSec))
+      ind.set_status(appindicator.IndicatorStatus.ACTIVE)
+    else:
+      gsettings_session.set_value(IdleKey,GLib.Variant.new_uint32(0))
+      ind.set_status(appindicator.IndicatorStatus.ATTENTION)
+
+def toggleSleepInactive(widget):
+    isActive=widget.get_active()
+    if isActive:
+      gsettings_power.set_string(SleepKey1, SleepOn)
+      gsettings_power.set_string(SleepKey2, SleepOn)
+    else:
+      gsettings_power.set_string(SleepKey1, SleepOff)
+      gsettings_power.set_string(SleepKey2, SleepOff)
+
+def on_my_setting_changed(gsettings_traytools, widget, key, check_button):
+    check_button.set_active(gsettings_traytools.get_boolean(key))
+
+def on_check_button_toggled(widget, button, gsettings_traytools, key):
+    gsettings_traytools.set_boolean(key, button.get_active())
+
+def on_folder_selected(widget):
+    backgroundfolder = widget.get_filename()
+    gsettings_traytools.set_string("backgroundfolder", backgroundfolder)
+    findWallpapers()
+
+def closeWindow(widget, event, window):
+    # Close window
+    widget.destroy()
+
+def openPreferences(widget):
+    ### GTK Preferences Window
+    # Create Prefences window
+    preferencesWindow = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
+    preferencesWindow.set_title('Gnome TrayTools')
+    preferencesWindow.set_icon_name(icon_app)
+    preferencesWindow.set_border_width(24)
+    preferencesWindow.connect('delete-event', closeWindow, preferencesWindow)
+
+    ## Button definitions
+    # Autostart
+    key = 'autostart'
+    autostart_check_button = Gtk.CheckButton(label='Autostart Gnome TrayTools')
+    if os.path.isfile(autoStartDestinationFile) == True:
+      autostart_check_button.set_active(True)
+    else:
+      autostart_check_button.set_active(False)
+    autostart_check_button.connect("toggled", toggleAutoStart)
+
+    # LiveWallpaper
+    key = 'livewallpaper'
+    check_button_livewallpaper = Gtk.CheckButton(label='Enable LiveWallpaper at Startup')
+    check_button_livewallpaper.set_active(gsettings_traytools.get_boolean(key))
+    gsettings_traytools.connect("changed::livewallpaper", on_my_setting_changed, key, check_button_livewallpaper)
+    check_button_livewallpaper.connect("toggled", on_check_button_toggled, check_button_livewallpaper, gsettings_traytools, key)
+
+    # Screensaver
+    key = 'screensaver'
+    check_button_screensaver = Gtk.CheckButton(label='Enable Screensaver at Startup')
+    check_button_screensaver.set_active(gsettings_traytools.get_boolean(key))
+    gsettings_traytools.connect("changed::screensaver", on_my_setting_changed, key, check_button_screensaver)
+    check_button_screensaver.connect("toggled", on_check_button_toggled, check_button_screensaver, gsettings_traytools, key)
+
+    # SleepInactive
+    key = 'sleepinactive'
+    check_button_sleepinactive = Gtk.CheckButton(label='Enable SleepInactive at Startup')
+    check_button_sleepinactive.set_active(gsettings_traytools.get_boolean(key))
+    gsettings_traytools.connect("changed::sleepinactive", on_my_setting_changed, key, check_button_sleepinactive)
+    check_button_sleepinactive.connect("toggled", on_check_button_toggled, check_button_sleepinactive, gsettings_traytools, key)
+
+    # BackgroundFolder
+    choose_button_backgroundfolder = Gtk.FileChooserButton()
+    choose_button_backgroundfolder.set_action(Gtk.FileChooserAction.SELECT_FOLDER)
+    choose_button_backgroundfolder.set_create_folders(False)
+    backgroundfolder = gsettings_traytools.get_string("backgroundfolder")
+    choose_button_backgroundfolder.set_current_folder(gsettings_traytools.get_string("backgroundfolder"))
+    choose_button_backgroundfolder.set_title('Choose a Backgroundfolder')
+    choose_button_backgroundfolder.connect("file-set", on_folder_selected)
+
+    ## Window Layout
+    prefBox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+    preferencesWindow.add(prefBox)
+    prefBox.add(autostart_check_button)
+    prefBox.add(check_button_livewallpaper)
+    prefBox.add(check_button_screensaver)
+    prefBox.add(check_button_sleepinactive)
+    prefBox.add(choose_button_backgroundfolder)
+    preferencesWindow.show_all()
+
+def renderMenu():
+    global menu
+
+    # Menu Items
+    menu_next = Gtk.MenuItem(label='Next Wallpaper...')
+    menu_next.connect("activate", nextWallpaper)
+    menu.append(menu_next)
+
+    menu.append(Gtk.SeparatorMenuItem.new())
+
+    key = 'livewallpaper'
+    menu_livewallpaper = Gtk.CheckMenuItem(label='LiveWallpaper')
+    menu_livewallpaper.connect("toggled", toggleWallpaper)
+    menu_livewallpaper.set_active(gsettings_traytools.get_boolean(key))
+    menu.append(menu_livewallpaper)
+
+    key = 'screensaver'
+    menu_screensaver = Gtk.CheckMenuItem(label='Screensaver')
+    menu_screensaver.connect("toggled", toggleScreensaver)
+    menu_screensaver.set_active(gsettings_traytools.get_boolean(key))
+    menu.append(menu_screensaver)
+
+    key = 'sleepinactive'
+    menu_sleepinactive = Gtk.CheckMenuItem(label='SleepInactive')
+    menu_sleepinactive.connect("toggled", toggleSleepInactive)
+    menu_sleepinactive.set_active(gsettings_traytools.get_boolean(key))
+    menu.append(menu_sleepinactive)
+
+    menu.append(Gtk.SeparatorMenuItem.new())
+
+    menu_preferences = Gtk.MenuItem(label='Preferences')
+    menu_preferences.set_use_underline(True)
+    menu_preferences.connect("activate", openPreferences)
+    menu.append(menu_preferences)
+
+    menu.append(Gtk.SeparatorMenuItem.new())
+
+    menu_quit = Gtk.MenuItem(label='Quit')
+    menu_quit.connect("activate", quitApplication)
+    menu.append(menu_quit)
+
+    menu.show_all()
+    ind.set_menu(menu)
+
+##### Main Loop
+if __name__ == "__main__":
+  # Main Env Vars
+  appName = 'gnome-traytools'
+  NextWallpaperSec = 900 # 900 Sec or 15 Min
+  IdleSec = 300
+  IdleKey = 'idle-delay'
+  SleepKey1 = 'sleep-inactive-battery-type'
+  SleepKey2 = 'sleep-inactive-ac-type'
+  SleepOn = 'suspend'
+  SleepOff = 'nothing'
+  icon_app = "preferences-system"
+  icon_active = "video-display"
+  icon_attention = "system-lock-screen"
+  userHome = os.getenv("HOME")
+  autoStartDestinationFolder = os.path.join(userHome, '.config', 'autostart')
+  autoStartDestinationFile = os.path.join(autoStartDestinationFolder, appName + '.desktop')
+  autoStartSourceFile = os.path.join('/usr/share/applications/' + appName + '.desktop')
+
+  # Setup gsettings
+  gsettings_traytools = Gio.Settings.new("apps.gnome-traytools")
+  gsettings_background = Gio.Settings.new("org.gnome.desktop.background")
+  gsettings_screensaver = Gio.Settings.new("org.gnome.desktop.screensaver")
+  gsettings_session = Gio.Settings.new("org.gnome.desktop.session")
+  gsettings_power = Gio.Settings.new("org.gnome.settings-daemon.plugins.power")
+
+  # Placeholder vars
+  IMAGE_NUMBER = 0
+
+  # Create lockFile
+  try:
+    lockFile = open('/tmp/' + appName + '.lock','w')
+    fcntl.flock(lockFile, fcntl.LOCK_EX|fcntl.LOCK_NB)
+  except:
+    sys.exit(appName + ' instance already running')
+  lockFile.write('%d\n'%os.getpid())
+  lockFile.flush()
+
+  # Create Application Indicator
+  ind = appindicator.Indicator.new (appName, icon_active, appindicator.IndicatorCategory.APPLICATION_STATUS)
+  ind.set_attention_icon_full(icon_attention, 'attention')
+  ind.set_status(appindicator.IndicatorStatus.ACTIVE)
+
+  # Create Menu
+  menu = Gtk.Menu()
+
+  # Render menu items
+  findWallpapers()
+  renderMenu()
+
+  # Start GTK Main
+  Gtk.main()

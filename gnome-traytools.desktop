@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=Gnome TrayTools
+Exec=/usr/share/gnome-traytools/gnome-traytools
+Icon=applications-utilities
