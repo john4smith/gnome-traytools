@@ -1,6 +1,7 @@
 # gnome-traytools
 Python3 TrayTools Indicator for the Gnome Desktop
 ![Alt text](/screenshot.png?raw=true "Screenshot")
+
 __
 ### install for Arch Linux
 - **Use the PKGBUILD:** https://wiki.archlinux.org/index.php/Makepkg
