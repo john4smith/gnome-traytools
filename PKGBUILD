@@ -7,7 +7,7 @@ arch=('any')
 url="https://github.com/john4smith/gnome-traytools"
 license=('GPL3')
 depends=('gnome-shell' 'libappindicator-gtk3' 'python-gobject' 'dconf')
-optdepends=('gnome-shell-extension-appindicator-git: gnome indicator support'
+optdepends=('gnome-shell-extension-appindicator: gnome indicator support'
             'gnome-shell-extension-topicons-plus: gnome indicator support')
 source=("${pkgname}-${pkgver}.zip::${url}/archive/master.zip")
 sha256sums=('SKIP')
